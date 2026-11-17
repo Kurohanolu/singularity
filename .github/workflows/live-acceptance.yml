@@ -1,0 +1,82 @@
+name: Verify deployed weather release
+on:
+  workflow_run:
+    workflows: [Deploy verified Singularity]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  live-acceptance:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: operations
+          persist-credentials: false
+      - name: Resolve immutable successful deployment
+        id: source
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const assert=require('node:assert/strict');
+            const run=context.payload.workflow_run;
+            assert.equal(context.repo.owner,'Kurohanolu');assert.equal(context.repo.repo,'singularity');
+            assert.equal(run.path,'.github/workflows/deploy.yml');assert.equal(run.event,'push');
+            assert.equal(run.status,'completed');assert.equal(run.conclusion,'success');assert.equal(run.head_branch,'main');
+            assert.match(run.head_sha,/^[a-f0-9]{40}$/);
+            const file=(await github.rest.repos.getContent({...context.repo,path:'deployment-request.json',ref:run.head_sha})).data;
+            assert.equal(file.type,'file');assert.equal(file.encoding,'base64');
+            const request=JSON.parse(Buffer.from(file.content,'base64').toString());
+            assert.deepEqual(Object.keys(request),['source_sha']);assert.match(request.source_sha,/^[a-f0-9]{40}$/);
+            core.setOutput('sha',request.source_sha);core.setOutput('run_url',run.html_url);
+      - uses: actions/checkout@v4
+        with:
+          repository: Kurohanolu/chloha-damage-lab
+          ref: ${{ steps.source.outputs.sha }}
+          fetch-depth: 0
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify deployment provenance and all successful deployment steps
+        uses: actions/github-script@v7
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          DEPLOYMENT_RUN: ${{ steps.source.outputs.run_url }}
+        with:
+          script: |
+            const fs=require('node:fs');
+            const {verifyDeploymentRun}=require('./source/scripts/helpers/v100-deployment-proof.cjs');
+            const proof=await verifyDeploymentRun({github,sourceCommit:process.env.SOURCE_SHA,runUrl:process.env.DEPLOYMENT_RUN,expectedWorkflow:fs.readFileSync('source/deployment/singularity-pages.yml')});
+            core.info(JSON.stringify(proof));
+      - name: Verify exact public bytes and record genuine preacceptance receipt
+        working-directory: source
+        env:
+          SINGULARITY_DEPLOYMENT_RUN: ${{ steps.source.outputs.run_url }}
+        run: |
+          node -e "const r=require('./release.json');require('node:assert/strict').equal(r.tag,'v1.1.0-pre.11');require('node:child_process').execFileSync(process.execPath,['scripts/v100-live-acceptance.cjs',r.migration.liveTargetVerified?'--publication':'--record-preacceptance'],{stdio:'inherit'})"
+          node -e "const fs=require('node:fs');const p='reports/v100/live-acceptance-receipt.json';if(fs.existsSync(p))console.log('LIVE_ACCEPTANCE_RECEIPT='+JSON.stringify(JSON.parse(fs.readFileSync(p))))"
+      - name: Prepare reviewed public weather browser regression
+        working-directory: source
+        run: |
+          npm install --no-package-lock --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk
+      - name: Verify public weather across ten locales and both mobile widths
+        working-directory: source
+        run: node ../operations/scripts/verify-public-weather.cjs
+      - name: Preserve exact-source live verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weather-live-acceptance
+          path: |
+            source/reports/v100/live-public-assets.json
+            source/reports/v100/live-acceptance-receipt.json
+            source/reports/v110/weather-browser.json
+          if-no-files-found: error
