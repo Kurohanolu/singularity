@@ -1,2 +1,5 @@
-# singularity
-Pokémon Damage Calculator by Chloha Labs. Generated static frontend; authoritative source and Issues: https://github.com/Kurohanolu/chloha-damage-lab
+# Singularity
+
+Pokémon Damage Calculator by Chloha Labs.
+
+[Open the calculator](https://kurohanolu.github.io/singularity/)

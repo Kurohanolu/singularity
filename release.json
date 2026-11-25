@@ -1,0 +1,17 @@
+{
+  "version": "1.1.0",
+  "preRelease": null,
+  "tag": "v1.1.0",
+  "name": "Singularity v1.1.0",
+  "publicUrl": "https://kurohanolu.github.io/singularity/",
+  "product": "Singularity",
+  "developer": "Chloha Labs",
+  "branding": {
+    "reference": "assets/singularity/orbital-s-reference.png",
+    "icon": "assets/singularity/orbital-s-icon.webp",
+    "header": "assets/singularity/header.webp",
+    "favicon": "assets/singularity/favicon.png",
+    "appleTouch": "assets/singularity/apple-touch-icon.png"
+  },
+  "channel": "stable"
+}

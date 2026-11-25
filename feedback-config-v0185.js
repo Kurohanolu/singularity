@@ -1,0 +1,2 @@
+/* ES-LA reporting is paused until its production validator can be deployed. */
+window.ChlohaFeedbackConfig=Object.freeze({apiBase:'https://chloha-private-feedback.kurohanolu-labs.workers.dev',disabledLocales:Object.freeze(['es-LA']),disabledLocaleNotice:'El envío de reportes en español latinoamericano está temporalmente deshabilitado. Puedes usar otro idioma para enviar un reporte. No se envió nada.'});
