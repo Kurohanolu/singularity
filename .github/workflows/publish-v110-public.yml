@@ -1,0 +1,46 @@
+name: Publish Singularity v1.1.0 public release
+on:
+  push:
+    branches: [release/v1.1.0-public]
+    paths: [.github/workflows/publish-v110-public.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: publish-singularity-v110
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_COMMIT: c149d87c0d83b7c79f51ca252441ee1a8d1a3729
+      DEPLOY_RUN: "45664818273"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c149d87c0d83b7c79f51ca252441ee1a8d1a3729
+          persist-credentials: false
+      - name: Verify the exact public tree, archives and successful Pages deployment
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = Kurohanolu/singularity
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$RELEASE_COMMIT"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEPLOY_RUN" |
+            jq -e --arg sha "$RELEASE_COMMIT" '.head_sha == $sha and .conclusion == "success" and .name == "Deploy verified Singularity public files"'
+          GITHUB_SHA="$RELEASE_COMMIT" python3 .github/scripts/verify-public-bundle.py --github-archives
+      - name: Publish the stable public release
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$RELEASE_COMMIT"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref=refs/tags/v1.1.0 -f sha="$RELEASE_COMMIT" ||
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v1.1.0" --jq .object.sha)" = "$RELEASE_COMMIT"
+          if gh release view v1.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release view v1.1.0 --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName |
+              jq -e '.tagName == "v1.1.0" and (.isDraft | not) and (.isPrerelease | not)'
+            exit 0
+          fi
+          gh release create v1.1.0 --repo "$GITHUB_REPOSITORY" --verify-tag --title "Singularity v1.1.0 Stable" --latest --notes "Pokémon Champions向けのダメージ計算機の正式版です。Showdown Champions準拠の計算と10言語の表示に対応しています。Pokémon Champions実機との完全一致は未検証です。
+
+          [計算機を開く](https://kurohanolu.github.io/singularity/)"
